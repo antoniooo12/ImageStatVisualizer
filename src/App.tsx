@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
-import { Chart, registerables } from "chart.js";
+import {Chart, ChartData, registerables} from "chart.js";
 import { Line } from "react-chartjs-2";
+import {a} from "vite/dist/node/types.d-aGj9QkWt";
 
 Chart.register(...registerables);
 
@@ -8,9 +9,10 @@ const ImageAnalysis = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [intensityChartData, setIntensityChartData] = useState<ChartData | null>(null);
     const [varianceChartData, setVarianceChartData] = useState<ChartData | null>(null);
-
+    const [imageURL, setImageURL] = useState<string>();
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
+        setImageURL(URL.createObjectURL(file));
         if (file) {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -88,24 +90,50 @@ const ImageAnalysis = () => {
     });
 
     return (
-        <div>
-            <h2>Завантажте зображення для аналізу інтенсивності пікселів</h2>
-            <p style={{ color: 'indianred' }}>Цей прототип має проблеми з перформансом (може не оброблювати великі зображення)</p>
-            <input type="file" accept="image/*" onChange={handleImageUpload} />
-            <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
-            {intensityChartData && (
+        <div style={{
+            width: '100%',
+            height: '100%',
+        }}>
+            <div>
+                <h2>Завантажте зображення для аналізу інтенсивності пікселів</h2>
+                <p style={{color: 'indianred'}}>Цей прототип має проблеми з перформансом (може не оброблювати великі
+                    зображення)</p>
+                <input type="file" accept="image/*" onChange={handleImageUpload}/>
+            </div>
+            <div style={{
+                display: 'flex',
+                gap: 20,
+            }}>
                 <div>
-                    <h3>Графік середньої інтенсивності пікселів</h3>
-                    <Line data={intensityChartData} />
+
+                    <canvas ref={canvasRef} style={{display: "none"}}></canvas>
+                    {intensityChartData && (
+                        <div>
+                            <h3>Графік середньої інтенсивності пікселів</h3>
+                            <Line data={intensityChartData}/>
+                        </div>
+                    )}
+                    {varianceChartData && (
+                        <div>
+                            <h3>Графік дисперсії інтенсивності пікселів</h3>
+                            <Line data={varianceChartData}/>
+                        </div>
+                    )}
                 </div>
-            )}
-            {varianceChartData && (
-                <div>
-                    <h3>Графік дисперсії інтенсивності пікселів</h3>
-                    <Line data={varianceChartData} />
+                <div style={{
+                    width: 500,
+                    height: 500
+                }}>
+                    <h3>Завантажене зображення </h3>
+                    <img style={{
+                        objectFit: 'contain',
+                        width: '100%',
+                        height: '100%',
+                    }} src={imageURL}/>
                 </div>
-            )}
+            </div>
         </div>
+
     );
 };
 
