@@ -6,8 +6,8 @@ Chart.register(...registerables);
 
 const ImageAnalysis = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [intensityChartData, setIntensityChartData] = useState<any>({});
-    const [varianceChartData, setVarianceChartData] = useState<any>({});
+    const [intensityChartData, setIntensityChartData] = useState<ChartData | null>(null);
+    const [varianceChartData, setVarianceChartData] = useState<ChartData | null>(null);
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -18,77 +18,30 @@ const ImageAnalysis = () => {
                 img.src = e.target?.result as string;
 
                 img.onload = () => {
-                    const canvas = canvasRef.current;
-                    if (canvas) {
-                        const ctx = canvas.getContext("2d");
+                    if (canvasRef.current) {
+                        const { width, height } = img;
+                        const ctx = canvasRef.current.getContext("2d");
                         if (ctx) {
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-
+                            canvasRef.current.width = width;
+                            canvasRef.current.height = height;
                             ctx.drawImage(img, 0, 0);
 
-                            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                            const pixels = imageData.data;
-                            const width = imageData.width;
-                            const height = imageData.height;
+                            const imageData = ctx.getImageData(0, 0, width, height);
+                            const { data: pixels } = imageData;
 
                             const intensityData: number[] = [];
                             const varianceData: number[] = [];
 
-                            for (let layers = 0; layers <= height; layers++) {
-                                let sumIntensity = 0;
-                                let sumSquareIntensity = 0;
-                                let count = 0;
-
-                                for (let y = 0; y < layers; y++) {
-                                    for (let x = 0; x < width; x++) {
-
-                                        const index = (y * width + x) * 4;
-                                        const r = pixels[index];
-                                        const g = pixels[index + 1];
-                                        const b = pixels[index + 2];
-                                        const intensity = 0.299 * r + 0.587 * g + 0.114 * b;
-                                        sumIntensity += intensity;
-                                        sumSquareIntensity += intensity * intensity;
-
-                                        count++;
-                                    }
-                                }
-
-                                const averageIntensity = sumIntensity / count;
-                                const variance = (sumSquareIntensity / count) - (averageIntensity * averageIntensity);
-
+                            for (let layers = 1; layers <= height; layers++) {
+                                const { averageIntensity, variance } = calculateLayerStatistics(pixels, width, height, layers);
                                 intensityData.push(averageIntensity);
                                 varianceData.push(variance);
                             }
-                            console.log('intensityData: ', intensityData)
+
                             const labels = Array.from({ length: height }, (_, i) => `Layers ${i + 1}`);
 
-                            setIntensityChartData({
-                                labels,
-                                datasets: [
-                                    {
-                                        label: 'Average Pixel Intensity',
-                                        data: intensityData,
-                                        borderColor: 'rgba(75, 192, 192, 1)',
-                                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                        borderWidth: 1,
-                                    },
-                                ],
-                            });
-
-                            setVarianceChartData({
-                                labels,
-                                datasets: [
-                                    {
-                                        label: 'Pixel Intensity Variance',
-                                        data: varianceData,
-                                        borderColor: 'rgba(153, 102, 255, 1)',
-                                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
-                                        borderWidth: 1,
-                                    },
-                                ],
-                            });
+                            setIntensityChartData(createChartData(labels, 'Average Pixel Intensity', intensityData, 'rgba(75, 192, 192, 1)', 'rgba(75, 192, 192, 0.2)'));
+                            setVarianceChartData(createChartData(labels, 'Pixel Intensity Variance', varianceData, 'rgba(153, 102, 255, 1)', 'rgba(153, 102, 255, 0.2)'));
                         }
                     }
                 };
@@ -97,21 +50,56 @@ const ImageAnalysis = () => {
         }
     };
 
+    const calculateLayerStatistics = (pixels: Uint8ClampedArray, width: number, height: number, layers: number) => {
+        let sumIntensity = 0;
+        let sumSquareIntensity = 0;
+        let count = 0;
+
+        for (let y = height - layers; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const index = (y * width + x) * 4;
+                const r = pixels[index];
+                const g = pixels[index + 1];
+                const b = pixels[index + 2];
+                const intensity = 0.299 * r + 0.587 * g + 0.114 * b;
+                sumIntensity += intensity;
+                sumSquareIntensity += intensity * intensity;
+                count++;
+            }
+        }
+
+        const averageIntensity = count ? sumIntensity / count : 0;
+        const variance = count ? (sumSquareIntensity / count) - (averageIntensity * averageIntensity) : 0;
+
+        return { averageIntensity, variance };
+    };
+
+    const createChartData = (labels: string[], label: string, data: number[], borderColor: string, backgroundColor: string) => ({
+        labels,
+        datasets: [
+            {
+                label,
+                data,
+                borderColor,
+                backgroundColor,
+                borderWidth: 1,
+            },
+        ],
+    });
+
     return (
         <div>
             <h2>Завантажте зображення для аналізу інтенсивності пікселів</h2>
-            <p style={{
-                color: 'indianred'
-            }}>Цей прототип має проблеми з перформансом (може не оброблювати великі зображення)</p>
+            <p style={{ color: 'indianred' }}>Цей прототип має проблеми з перформансом (може не оброблювати великі зображення)</p>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
             <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
-            {intensityChartData.labels && intensityChartData.datasets && (
+            {intensityChartData && (
                 <div>
                     <h3>Графік середньої інтенсивності пікселів</h3>
                     <Line data={intensityChartData} />
                 </div>
             )}
-            {varianceChartData.labels && varianceChartData.datasets && (
+            {varianceChartData && (
                 <div>
                     <h3>Графік дисперсії інтенсивності пікселів</h3>
                     <Line data={varianceChartData} />
