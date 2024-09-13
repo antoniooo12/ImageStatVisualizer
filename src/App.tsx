@@ -102,7 +102,7 @@ const ImageAnalysis = () => {
             <h2>Завантажте зображення для аналізу інтенсивності пікселів</h2>
             <p style={{
                 color: 'indianred'
-            }}>Цей прототип має проблеми з перформансом</p>
+            }}>Цей прототип має проблеми з перформансом (може не оброблювати великі зображення)</p>
             <input type="file" accept="image/*" onChange={handleImageUpload} />
             <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
             {intensityChartData.labels && intensityChartData.datasets && (
